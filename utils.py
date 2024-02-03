@@ -1,4 +1,5 @@
 import cv2
+from matplotlib import pyplot as plt
 import numpy as np
 
 # Helper function for selecting the region of interest
@@ -6,88 +7,105 @@ def region_of_interest(edges):
     height, width = edges.shape
     mask = np.zeros_like(edges)
 
-    # Define the polygon for the region of interest
-    # The polygon is defined to cover the bottom part of the image, starting from 80% of the height
-    # This effectively focuses the region of interest on the lower part of the image where the lanes on the road are more likely to be found,
-    # excluding the upper part of the image which might contain irrelevant details.
-    polygon = np.array([[(0, height * 0.8), (width, height * 0.8), (width, height), (0, height)],], np.int32)
+    # Calculate the vertices of the trapezoid based on image size
+    # These points define a trapezoid that narrows towards the top of the image, focusing on the lane area
+    bottom_left = (width * 0.1, height * 0.8)  # Adjust to move the point more to the center or outward
+    top_left = (width * 0.4, height * 0.6)  # Adjust to control the width of the top of the trapezoid
+    top_right = (width * 0.6, height * 0.6)  # Same as above, for symmetry
+    bottom_right = (width * 0.9, height * 0.8)  # Same as bottom_left, for symmetry
 
-    #This function fills the specified polygon area in the mask with the color white (255)
+    # Define the polygon for the region of interest as a trapezoid
+    polygon = np.array([[bottom_left, top_left, top_right, bottom_right]], np.int32)
+
+    # Fill the specified polygon area in the mask with white (255)
     cv2.fillPoly(mask, polygon, 255)
 
-    # Performs a bitwise AND operation between the edges image and the mask
-    # only the edges that fall within the region of interest are visible in the masked_image, and everything else is blacked out
+    # Perform a bitwise AND between the edges image and the mask to obtain the focused region of interest
     masked_image = cv2.bitwise_and(edges, mask)
     return masked_image
 
-# Helper function for drawing Hough lines
-# def draw_lines(frame, lines, thickness=3):
-#     global prev_lane_center
-#     current_lane_center = 0
-#     if lines is not None:
-#         for line in lines:
-#             for x1, y1, x2, y2 in line:
-#                 cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), thickness)
-#                 current_lane_center += (x1 + x2) / 2
-#         if len(lines) > 0:
-#             current_lane_center /= len(lines)  # Average center for current frame
-
-#     # Detect lane change based on the shift of the lane center
-#     # if prev_lane_center is not None:
-#     #     lane_change_detected(current_lane_center, frame)
-
-#     # Update for next frame
-#     prev_lane_center = current_lane_center
-#     return frame
-
-
-import cv2
-import numpy as np
-
-def draw_lines(frame, lines, thickness=10):
-    global prev_lane_center
-    current_lane_center = 0
-    if lines is not None:
-        for line in lines:
-            for x1, y1, x2, y2 in line:
-                # Calculate slope and angle
-                slope = (y2 - y1) / (x2 - x1) if x2 != x1 else float('inf')
-                angle = np.arctan(slope) * 180 / np.pi
-                
-                # Filter lines based on angle threshold, e.g., within +/- 30 degrees of vertical
-                angle_threshold = 70  # adjust as necessary
-                if abs(angle) > (90 - angle_threshold) and abs(angle) < (90 + angle_threshold):
-                    # Make lines longer
-                    if slope != 0:  # Avoid division by zero
-                        # Extend to the bottom of the region of interest
-                        y1_new = int(frame.shape[0])
-                        x1_new = int(x1 + (y1_new - y1) / slope)
-                        # Extend to the top of the region of interest (or to a fixed point)
-                        y2_new = int(frame.shape[0] * 0.8)
-                        x2_new = int(x1 + (y2_new - y1) / slope)
-                        
-                        # Draw the extended line
-                        cv2.line(frame, (x1_new, y1_new), (x2_new, y2_new), (255, 0, 0), thickness)
-                        current_lane_center += (x1_new + x2_new) / 2
-        if len(lines) > 0:
-            current_lane_center /= len(lines)  # Average center for current frame
-
-    # Update for next frame
-    prev_lane_center = current_lane_center
+def cluster_lines_and_draw(frame, lines, min_dist_x=25, thickness=10):
+    """
+    Clusters lines based on their closeness along the x-axis and draws a single representative line for each cluster.
+    :param lines: Array of lines from cv2.HoughLinesP
+    :param min_dist_x: Minimum distance along x-axis to consider lines as being in the same cluster.
+    :return: List of representative lines for each cluster.
+    """
+    clusters = []
+    if lines is None:
+        return frame
+    
+    for line in lines:
+        x1, y1, x2, y2 = line[0]
+        if not is_line_orientation_within_angle_range((x1, y1, x2, y2), 15, 165):
+            continue
+        # Use the midpoint or any other representative point of the line for clustering
+        midpoint_x = (x1 + x2) / 2
+        added_to_cluster = False
+        for cluster in clusters:
+            if any(abs(midpoint_x - (cl[0] + cl[2]) / 2) <= min_dist_x for cl in cluster):
+                cluster.append((x1, y1, x2, y2))
+                added_to_cluster = True
+                break
+        if not added_to_cluster:
+            clusters.append([(x1, y1, x2, y2)])
+    
+    # Generate representative lines for each cluster
+    for cluster in clusters:
+        x1, y1, x2, y2 = np.mean(cluster, dtype=int, axis=0)
+        cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), thickness)        
+    
     return frame
 
+
+def draw_lines(frame, lines, segment_width=150, thickness=6):
+    num_segments = frame.shape[1] // segment_width
+    if lines is None:
+        print('Null lines')
+        plt.imshow(frame)
+        return frame
+    
+    for segment in range(num_segments):
+        # Define the x range for the current segment
+        x_start = segment * segment_width
+        x_end = x_start + segment_width
+
+        max_intensity = 0
+        max_line = None
+        for line in lines:
+            for x1, y1, x2, y2 in line:
+                
+                if not is_line_orientation_within_angle_range((x1, y1, x2, y2), 15, 165):
+                    continue
+                # Check if the line intersects with the current segment range
+                if x_start <= x1 <= x_end or x_start <= x2 <= x_end:
+                    # Calculate intensity or significance of the line, e.g., by its length
+                    line_length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+                    # Update max intensity and max line if this line is more significant
+                    if line_length > max_intensity:
+                        max_intensity = line_length
+                        max_line = (x1, y1, x2, y2)
+
+        # If a max line was found for the segment, draw it on the image
+        if max_line is not None:
+            cv2.line(frame, (max_line[0], max_line[1]), (max_line[2], max_line[3]), (255, 0, 0), thickness)
+
+    return frame
+
+
+def is_line_orientation_within_angle_range(line, min_degree, max_degree):
+    x1, y1, x2, y2 = line
+    theta = np.arctan2(y2 - y1, x2 - x1)
+    return min_degree * np.pi/180 < np.abs(theta) < max_degree * np.pi/180
 
 
 
 def detect_vertical_lines(edges):
     # Define a vertical line convolution kernel
-    # This kernel is designed to highlight vertical lines and suppress horizontal ones.
     kernel = np.array([[-1, 2, -1],
-                       [-1, 2, -1],
-                       [-1, 2, -1]])
+                    [-1, 2, -1],
+                    [-1, 2, -1]])
+    vertical_lines = cv2.filter2D(edges, -1, kernel)
     
-    # Apply convolution using the defined kernel
-    # cv2.filter2D requires a source image, desired depth (-1 to use the same as source), and the kernel
-    convolved_edges = cv2.filter2D(edges, -1, kernel)
-    
-    return convolved_edges
+    return vertical_lines
