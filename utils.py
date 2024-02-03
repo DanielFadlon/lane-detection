@@ -24,73 +24,50 @@ def region_of_interest(edges):
     masked_image = cv2.bitwise_and(edges, mask)
     return masked_image
 
-def cluster_lines_and_draw(frame, lines, min_dist_x=25, thickness=10):
-    """
-    Clusters lines based on their closeness along the x-axis and draws a single representative line for each cluster.
-    :param lines: Array of lines from cv2.HoughLinesP
-    :param min_dist_x: Minimum distance along x-axis to consider lines as being in the same cluster.
-    :return: List of representative lines for each cluster.
-    """
-    clusters = []
-    if lines is None:
-        return frame
-    
+def cluster_lines_and_draw(frame, lines, min_dist_x=75, thickness=10):
+    clusters = []    
+    num_clusters = 0
     for line in lines:
         x1, y1, x2, y2 = line[0]
-        if not is_line_orientation_within_angle_range((x1, y1, x2, y2), 15, 165):
+        if not is_line_orientation_within_angle_range((x1, y1, x2, y2), 30, 150):
             continue
         # Use the midpoint or any other representative point of the line for clustering
         midpoint_x = (x1 + x2) / 2
         added_to_cluster = False
-        for cluster in clusters:
-            if any(abs(midpoint_x - (cl[0] + cl[2]) / 2) <= min_dist_x for cl in cluster):
-                cluster.append((x1, y1, x2, y2))
-                added_to_cluster = True
-                break
-        if not added_to_cluster:
-            clusters.append([(x1, y1, x2, y2)])
+        if num_clusters == 2: # at most two clusters/lines then choose the closest one
+            dist = []
+            for cls_number in range(num_clusters):
+                centroid = np.mean(clusters[cls_number], dtype=int, axis=0)
+                dist.append(abs(midpoint_x - (centroid[0] + centroid[2]) / 2))
+
+            cls = 0 if dist[0] < dist[1] else 1
+            clusters[cls].append((x1, y1, x2, y2))
+        else: # num_clusters < 2
+            for cluster in clusters:
+                if any(abs(midpoint_x - (cl[0] + cl[2]) / 2) <= min_dist_x for cl in cluster):
+                    cluster.append((x1, y1, x2, y2))
+                    added_to_cluster = True
+                    break
+            if not added_to_cluster:
+                clusters.append([(x1, y1, x2, y2)])
+                num_clusters += 1
     
     # Generate representative lines for each cluster
+    representative_lines = []
     for cluster in clusters:
         x1, y1, x2, y2 = np.mean(cluster, dtype=int, axis=0)
+        representative_lines.append((x1, y1, x2, y2))
         cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), thickness)        
-    
-    return frame
+
+    return frame, representative_lines
 
 
-def draw_lines(frame, lines, segment_width=150, thickness=6):
-    num_segments = frame.shape[1] // segment_width
+def draw_lines(frame, lines, thickness=10):   
     if lines is None:
-        print('Null lines')
-        plt.imshow(frame)
-        return frame
-    
-    for segment in range(num_segments):
-        # Define the x range for the current segment
-        x_start = segment * segment_width
-        x_end = x_start + segment_width
-
-        max_intensity = 0
-        max_line = None
-        for line in lines:
-            for x1, y1, x2, y2 in line:
-                
-                if not is_line_orientation_within_angle_range((x1, y1, x2, y2), 15, 165):
-                    continue
-                # Check if the line intersects with the current segment range
-                if x_start <= x1 <= x_end or x_start <= x2 <= x_end:
-                    # Calculate intensity or significance of the line, e.g., by its length
-                    line_length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
-
-                    # Update max intensity and max line if this line is more significant
-                    if line_length > max_intensity:
-                        max_intensity = line_length
-                        max_line = (x1, y1, x2, y2)
-
-        # If a max line was found for the segment, draw it on the image
-        if max_line is not None:
-            cv2.line(frame, (max_line[0], max_line[1]), (max_line[2], max_line[3]), (255, 0, 0), thickness)
-
+        return frame 
+    for line in lines:
+        x1, y1, x2, y2 = line
+        cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), thickness)
     return frame
 
 
@@ -98,7 +75,6 @@ def is_line_orientation_within_angle_range(line, min_degree, max_degree):
     x1, y1, x2, y2 = line
     theta = np.arctan2(y2 - y1, x2 - x1)
     return min_degree * np.pi/180 < np.abs(theta) < max_degree * np.pi/180
-
 
 
 def detect_vertical_lines(edges):
@@ -109,3 +85,35 @@ def detect_vertical_lines(edges):
     vertical_lines = cv2.filter2D(edges, -1, kernel)
     
     return vertical_lines
+
+
+# def draw_lines_per_segment(frame, lines, segment_width=150, thickness=6):
+#     num_segments = frame.shape[1] // segment_width
+    
+#     for segment in range(num_segments):
+#         # Define the x range for the current segment
+#         x_start = segment * segment_width
+#         x_end = x_start + segment_width
+
+#         max_intensity = 0
+#         max_line = None
+#         for line in lines:
+#             for x1, y1, x2, y2 in line:
+                
+#                 if not is_line_orientation_within_angle_range((x1, y1, x2, y2), 15, 165):
+#                     continue
+#                 # Check if the line intersects with the current segment range
+#                 if x_start <= x1 <= x_end or x_start <= x2 <= x_end:
+#                     # Calculate intensity or significance of the line, e.g., by its length
+#                     line_length = np.sqrt((x2 - x1)**2 + (y2 - y1)**2)
+
+#                     # Update max intensity and max line if this line is more significant
+#                     if line_length > max_intensity:
+#                         max_intensity = line_length
+#                         max_line = (x1, y1, x2, y2)
+
+#         # If a max line was found for the segment, draw it on the image
+#         if max_line is not None:
+#             cv2.line(frame, (max_line[0], max_line[1]), (max_line[2], max_line[3]), (255, 0, 0), thickness)
+
+#     return frame
