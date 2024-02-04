@@ -1,8 +1,7 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
 
-from utils import cluster_lines_and_draw, detect_vertical_lines, draw_lines, region_of_interest
+from utils import cluster_lines_and_draw, detect_crosswalk, detect_lane_change_and_display_message, detect_significant_lane_change, detect_vertical_lines, enhance_nighttime_visibility, region_of_interest
 
 original_day_drive_with_lane_change = 'data/original_day_drive_with_lane_change'
 original_night_drive_with_crosswalk = 'data/original_night_drive_with_crosswalk'
@@ -15,9 +14,9 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
     # Define the codec and create VideoWriter object
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(out_path + '.avi', fourcc, 20.0, (int(cap.get(3)), int(cap.get(4))))
-
-    global prev_lane_center
-    prev_lane_center = None
+    previous_lane_positions = {}
+    lane_change_frames_counter = 0
+    
     while cap.isOpened():
       #ret: A flag that indicates whether the frame has been successfully read
         ret, frame = cap.read()
@@ -25,8 +24,8 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
             break
 
         # Optionally enhance visibility for nighttime
-        # if enhance_nighttime:
-        #     frame = enhance_nighttime_visibility(frame)
+        if enhance_nighttime:
+            frame = enhance_nighttime_visibility(frame)
 
         #Greyscale the frame
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -41,9 +40,17 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
         # For each frame draw the detected lines
         frame_with_lines = cluster_lines_and_draw(frame, lines)
 
+        ###
+
+        previous_lane_positions, lane_change_frames_counter = detect_significant_lane_change(
+            frame, lines, previous_lane_positions, lane_change_frames_counter
+        )
+
+        ###
+
         # Optionally detect sidewalk if the flag is True
-        # if detect_sidewalk:
-        #     frame_with_lines = detect_crosswalk(frame_with_lines, masked_edges)
+        if detect_sidewalk:
+            frame_with_lines = detect_crosswalk(frame_with_lines, masked_edges)
 
         # Optionally detect vehicles
         if detect_vehicles:
