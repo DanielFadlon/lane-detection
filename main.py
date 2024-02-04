@@ -67,5 +67,8 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result')
+    #process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result')
+    #process_video(original_night_drive_with_crosswalk + data_type, out_path=original_night_drive_with_crosswalk + '-result', detect_sidewalk=False, detect_vehicles=False, enhance_nighttime=True)
+    #process_video(original_night_drive_with_crosswalk + data_type, out_path=original_night_drive_with_crosswalk + '-result', detect_sidewalk=True, detect_vehicles=False, enhance_nighttime=True)
+    #process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result')
     print('Initiating main.py for lane detection project')

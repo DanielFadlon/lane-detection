@@ -111,7 +111,7 @@ def detect_vertical_lines(edges):
     return vertical_lines
 
 def detect_crosswalk(frame, edges, min_crosswalk_lines=5):
-    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=50, maxLineGap=10)
+    lines = cv2.HoughLinesP(edges, 1, np.pi / 180, threshold=50, minLineLength=20, maxLineGap=100)
     crosswalk_line_count = 0  # Initialize count of crosswalk lines
     min_x, min_y = frame.shape[1], frame.shape[0]
     max_x, max_y = 0, 0
