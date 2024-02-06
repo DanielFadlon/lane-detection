@@ -22,6 +22,7 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
     prev_lane_center = None
     prev_lines = None
     lane_width = None
+    frame_with_prev_lines = None
 
     frame_counter = 0
     required_lane_width = 0
@@ -35,9 +36,8 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
 
         # if not lane_change_detected and prev_lines is not None:
         if not lane_change_detected and prev_lines is not None:
-            frame_with_prev_lines = draw_prev_lines(frame, prev_lines)
+            frame_with_lines = draw_prev_lines(frame, prev_lines)
             
-
         if lane_change_detected:
             frame_counter = -10
             required_lane_width = 0
@@ -59,30 +59,29 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
         lines = cv2.HoughLinesP(masked_edges, 2, np.pi/180, 100, np.array([]), minLineLength=100, maxLineGap=500)
         
         if lines is None:
-            frame_with_lines = frame_with_prev_lines
+            frame_with_lines = draw_prev_lines(frame, prev_lines)
             continue
         
         updated_lines, num_selected_lines = choose_lines(lines, min_dist_x=75, return_num_lines=True)
-        if num_selected_lines == 2 and frame_counter < 10:
+        if num_selected_lines == 2:
             lane_width = compute_lane_width(updated_lines)
-            first_lanes_width.append(lane_width)
-            frame_counter += 1
+            if frame_counter < 10:
+                first_lanes_width.append(lane_width)
+                frame_counter += 1
 
         if frame_counter == 10:
             required_lane_width = np.mean(first_lanes_width)
             frame_counter += 1
             print('Lane width:', lane_width)
-
+        
         frame_with_lines = draw_lines(frame, updated_lines)
         prev_lines = updated_lines
-
-        if lane_width is not None:
-            print('Lane width:', lane_width)
+ 
         if lane_width is not None and lane_width < required_lane_width * 0.9:
             print('Lane width:', lane_width)
             print('Required lane width:', required_lane_width)
             print('Lane width is too small, lane change detected')
-            lane_change_detected = True
+            # lane_change_detected = True
 
         # Save the frame to a video file (this is used in order to create the submission video)
         out.write(frame_with_lines)
