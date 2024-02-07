@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import choose_lines, compute_center, compute_lane_width, draw_lines, detect_vertical_lines, region_of_interest, draw_prev_lines, LaneChanged
+from utils import choose_lines, compute_center, compute_lane_width, detect_vehicles_in_frame, display_lane_change_message, draw_lines, detect_vertical_lines, region_of_interest, draw_prev_lines, LaneChanged
 
 # original_day_drive_with_lane_change = 'data/original_day_drive_with_lane_change'
 original_day_drive_with_lane_change = 'data/lane_changed_1'
@@ -32,13 +32,14 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
 
     frame_counter = 0
 
+    lane_changed_message_counter = 0
+
     while cap.isOpened():
       #ret: A flag that indicates whether the frame has been successfully read
         ret, frame = cap.read()
         if not ret:
             break
 
-        # if not lane_change_detected and prev_lines is not None:
         if prev_lines is not None:
             frame_with_lines = draw_prev_lines(frame, prev_lines, lane_change_status)
             
@@ -53,6 +54,7 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
 
         # Greyscale the frame
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
         # Apply gaussian blur for smoothing out the frame
         blurred_frame = cv2.GaussianBlur(src=gray_frame, ksize=(5,5), sigmaX=0)
         # Find edges that will be point of intrest in our image
@@ -78,22 +80,21 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
             required_lane_width = np.mean(first_lanes_width)
             required_lane_center = np.mean(first_lanes_center)
             frame_counter += 1
-            print('Lane width:', lane_width)
         
         frame_with_lines = draw_lines(frame, updated_lines)
         prev_lines = updated_lines
  
         if lane_width is not None and lane_width < required_lane_width * 0.9:
-            print('Lane width:', lane_width)
-            print('Required lane width:', required_lane_width)
-            print('Lane width is too small, lane change detected')
+            lane_changed_message_counter = 500
             if required_lane_center < current_lane_center:
-                print('Lane change to the left')
                 lane_change_status = LaneChanged.LEFT
             else:
-                print('Lane change to the right')
                 lane_change_status = LaneChanged.RIGHT
-            # lane_change_detected = True
+
+        lane_changed_message_counter = display_lane_change_message(frame, lane_changed_message_counter, lane_change_status)
+
+        if detect_vehicles:
+          detect_vehicles_in_frame(frame)
 
         # Save the frame to a video file (this is used in order to create the submission video)
         out.write(frame_with_lines)
@@ -107,5 +108,6 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result')
+    #process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result')
+    process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result', detect_vehicles=True)
     print('Initiating main.py for lane detection project')

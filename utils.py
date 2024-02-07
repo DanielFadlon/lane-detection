@@ -135,3 +135,95 @@ def detect_vertical_lines(edges):
     vertical_lines = cv2.filter2D(edges, -1, kernel)
     
     return vertical_lines
+
+def display_lane_change_message(frame, message_counter, lane_change_status):
+    if message_counter > 0 and lane_change_status is not None:
+        if lane_change_status == lane_change_status.RIGHT:
+            message = "We detected that your lane change to the right!"
+        else: 
+            message = "We detected that your lane change to the left!"
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        text_size = cv2.getTextSize(message, font, 1, 2)[0]
+        text_x = (frame.shape[1] - text_size[0]) // 2
+        text_y = (frame.shape[0] + text_size[1]) // 2
+        cv2.putText(frame, message, (text_x, text_y), font, 1, (0, 255, 0), 2)
+        draw_arrow_for_lane_change(frame, lane_change_status,((text_x + 430, text_y + 50)))
+        message_counter -= 1
+    return message_counter
+
+def draw_arrow_for_lane_change(frame, lane_change_status, base_position, arrow_length=100, arrow_color=(0, 255, 0), thickness=5):
+    start_point = base_position
+    if lane_change_status == LaneChanged.LEFT:
+        end_point = (base_position[0] - arrow_length, base_position[1])
+    else:
+        end_point = (base_position[0] + arrow_length, base_position[1])
+    
+    cv2.arrowedLine(frame, start_point, end_point, arrow_color, thickness, tipLength=0.3)
+
+
+def mark_vehicles(frame, detections, color=(0, 0, 255), thickness=2, warning_issued = False):
+    for (x, y, w, h) in detections:
+        # Draw a rectangle around each detected vehicle
+        cv2.rectangle(frame, (x, y), (x+w, y+h), color, thickness)
+        
+        if warning_issued:
+            # Define the position for the warning text to be inside the rectangle
+            text_position = (x + 5, y + h - 5)
+            warning_message = "Too Close!"
+            cv2.putText(frame, warning_message, text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
+
+
+def detect_vehicles_in_frame(frame, min_area=5000, max_area=10000, aspect_ratio_range=(2.0, 3), proximity_threshold=0.75):
+    warning_issued = False
+    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    # Edge detection
+    edges = cv2.Canny(gray_frame, 75, 300)
+    relevant_vehical_edges = region_of_interest_for_vehicle_detection(edges)
+    # Morphological operations to close gaps in edges
+    
+    # Find contours
+    contours, _ = cv2.findContours(relevant_vehical_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    
+    vehicle_detections = []
+    for cnt in contours:
+        rect = cv2.minAreaRect(cnt)
+        box = cv2.boxPoints(rect)
+        box = np.int0(box)
+        
+        # Extract the coordinates of the rectangle
+        x, y, w, h = cv2.boundingRect(box)
+        area = w * h
+        aspect_ratio = float(w) / h
+        bottom_edge_y = y + h
+        frame_height = frame.shape[0]
+        
+        # Filter based on area and aspect ratio
+        if min_area < area < max_area and aspect_ratio_range[0] < aspect_ratio < aspect_ratio_range[1]:
+            vehicle_detections.append((x, y, w, h))
+
+        # Check if the vehicle is too close based on its position or size
+            if bottom_edge_y > frame_height * proximity_threshold or area > (max_area * proximity_threshold):
+                warning_issued = True
+
+    mark_vehicles(frame, vehicle_detections, warning_issued)
+
+def region_of_interest_for_vehicle_detection(edges):
+    height, width = edges.shape
+    mask = np.zeros_like(edges)
+
+    # Calculate the vertices of the trapezoid based on image size
+    # These points define a trapezoid that narrows towards the top of the image, focusing on the lane area
+    bottom_left = (width * 0.07, height * 0.8)  # Adjust to move the point more to the center or outward
+    top_left = (width * 0.4, height * 0.5)  # Adjust to control the width of the top of the trapezoid
+    top_right = (width * 0.6, height * 0.5)  # Same as above, for symmetry
+    bottom_right = (width * 0.85, height * 0.8)  # Same as bottom_left, for symmetry
+
+    # Define the polygon for the region of interest as a trapezoid
+    polygon = np.array([[bottom_left, top_left, top_right, bottom_right]], np.int32)
+
+    # Fill the specified polygon area in the mask with white (255)
+    cv2.fillPoly(mask, polygon, 255)
+
+    # Perform a bitwise AND between the edges image and the mask to obtain the focused region of interest
+    masked_image = cv2.bitwise_and(edges, mask)
+    return masked_image
