@@ -1,13 +1,14 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-
-from utils import choose_lines, compute_lane_width, draw_lines, detect_vertical_lines, region_of_interest, draw_prev_lines
+from utils import choose_lines, compute_center, compute_lane_width, draw_lines, detect_vertical_lines, region_of_interest, draw_prev_lines, LaneChanged
 
 # original_day_drive_with_lane_change = 'data/original_day_drive_with_lane_change'
 original_day_drive_with_lane_change = 'data/lane_changed_1'
 original_night_drive_with_crosswalk = 'data/original_night_drive_with_crosswalk'
 data_type = '.mp4'
+
+
 
 # Main function to process the video
 def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=False, enhance_nighttime=False):
@@ -17,16 +18,19 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(out_path + '.avi', fourcc, 20.0, (int(cap.get(3)), int(cap.get(4))))
 
-    lane_change_detected = False
-    current_center = None
-    prev_lane_center = None
+    current_lane_center = None
     prev_lines = None
+
     lane_width = None
-    frame_with_prev_lines = None
+    first_lanes_width = []
+    required_lane_width = 0
+
+    lane_change_status = None
+
+    first_lanes_center = []
+    required_lane_center = 0
 
     frame_counter = 0
-    required_lane_width = 0
-    first_lanes_width = []
 
     while cap.isOpened():
       #ret: A flag that indicates whether the frame has been successfully read
@@ -35,18 +39,17 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
             break
 
         # if not lane_change_detected and prev_lines is not None:
-        if not lane_change_detected and prev_lines is not None:
-            frame_with_lines = draw_prev_lines(frame, prev_lines)
+        if prev_lines is not None:
+            frame_with_lines = draw_prev_lines(frame, prev_lines, lane_change_status)
             
-        if lane_change_detected:
+        if lane_change_status is not None and frame_counter == 11:
             frame_counter = -10
             required_lane_width = 0
             first_lanes_width = []
             lane_width = None
 
-        if frame_counter == 0 and lane_change_detected:
-            lane_change_detected = False
-            continue
+        if frame_counter == 0 and lane_change_status is not None:
+            lane_change_status = None
 
         # Greyscale the frame
         gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
@@ -59,18 +62,21 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
         lines = cv2.HoughLinesP(masked_edges, 2, np.pi/180, 100, np.array([]), minLineLength=100, maxLineGap=500)
         
         if lines is None:
-            frame_with_lines = draw_prev_lines(frame, prev_lines)
+            frame_with_lines = draw_prev_lines(frame, prev_lines, lane_change_status)
             continue
         
         updated_lines, num_selected_lines = choose_lines(lines, min_dist_x=75, return_num_lines=True)
         if num_selected_lines == 2:
             lane_width = compute_lane_width(updated_lines)
+            current_lane_center = compute_center(updated_lines)
             if frame_counter < 10:
                 first_lanes_width.append(lane_width)
+                first_lanes_center.append(current_lane_center)
                 frame_counter += 1
 
         if frame_counter == 10:
             required_lane_width = np.mean(first_lanes_width)
+            required_lane_center = np.mean(first_lanes_center)
             frame_counter += 1
             print('Lane width:', lane_width)
         
@@ -81,6 +87,12 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
             print('Lane width:', lane_width)
             print('Required lane width:', required_lane_width)
             print('Lane width is too small, lane change detected')
+            if required_lane_center < current_lane_center:
+                print('Lane change to the left')
+                lane_change_status = LaneChanged.LEFT
+            else:
+                print('Lane change to the right')
+                lane_change_status = LaneChanged.RIGHT
             # lane_change_detected = True
 
         # Save the frame to a video file (this is used in order to create the submission video)

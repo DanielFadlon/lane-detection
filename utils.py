@@ -1,6 +1,12 @@
 import cv2
 from matplotlib import pyplot as plt
 import numpy as np
+from  enum import Enum 
+
+
+class LaneChanged(Enum):
+    RIGHT = 1,
+    LEFT = 2
 
 # Helper function for selecting the region of interest
 def region_of_interest(edges):
@@ -30,6 +36,12 @@ def compute_lane_width(lines):
     x3, y3, x4, y4 = lines[1]
     lane_width = np.abs((x1 + x2) / 2 - (x3 + x4) / 2)
     return lane_width
+
+def compute_center(lines):
+    x1, y1, x2, y2 = lines[0]
+    x3, y3, x4, y4 = lines[1]
+    center = (x1 + x2) / 2
+    return center
 
 def choose_lines(lines, min_dist_x=75, return_num_lines=True):
     num_lines = len(lines)
@@ -82,12 +94,30 @@ def draw_lines(frame, lines, thickness=6):
         cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), thickness)
     return frame
 
-def draw_prev_lines(frame, lines, thickness=6):   
-    if lines is None:
-        return frame 
-    for line in lines:
-        x1, y1, x2, y2 = line
+def draw_prev_lines(frame, lines, lane_change_status, thickness=6):   
+    num_lines = len(lines)
+    if lines is None or num_lines == 0:
+        return frame
+    
+    if num_lines == 1:
+        x1, y1, x2, y2 = lines[0]
         cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), thickness)
+        return frame
+    
+    x1, y1, x2, y2 = lines[0]
+    x3, y3, x4, y4 = lines[1]
+    if lane_change_status == LaneChanged.RIGHT:
+        # draw only the previous right line
+        cv2.line(frame, (x3, y3), (x4, y4), (255, 0, 0), thickness)
+        return frame
+    if lane_change_status == LaneChanged.LEFT:
+        # draw only the previous left line
+        cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), thickness)
+        return frame
+    
+    
+    cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), thickness)
+    cv2.line(frame, (x3, y3), (x4, y4), (255, 0, 0), thickness)
     return frame
 
 
