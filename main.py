@@ -1,13 +1,11 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import choose_lines, compute_center, compute_lane_width, detect_vehicles_in_frame, display_lane_change_message, draw_lines, detect_vertical_lines, enhance_nighttime_visibility, region_of_interest, draw_prev_lines, LaneChanged
+from utils import choose_lines, compute_center, compute_lane_width, detect_and_highlight_sidewalk, detect_vehicles_in_frame, display_lane_change_message, draw_lines, detect_vertical_lines, enhance_nighttime_visibility, region_of_interest, draw_prev_lines, LaneChanged
 
-# original_day_drive_with_lane_change = 'data/original_day_drive_with_lane_change'
-original_day_drive_with_lane_change = 'data/lane_changed_1'
-original_night_drive_with_crosswalk = 'data/original_night_drive_with_crosswalk'
+day_drive = 'data/day_drive'
 original_night_drive = 'data/original_night_drive'
-test = 'data/test15'
+day_with_sidewalk = 'data/day_with_sidewalk'
 data_type = '.mp4'
 
 
@@ -99,6 +97,8 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
 
         lane_changed_message_counter = display_lane_change_message(frame, lane_changed_message_counter, lane_change_status)
 
+        if detect_sidewalk:
+            detect_and_highlight_sidewalk(frame)
         if detect_vehicles:
           detect_vehicles_in_frame(frame)
 
@@ -114,7 +114,8 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    #process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result')
+    process_video(day_drive  + data_type, out_path=day_drive + '-result')
     #process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result', detect_vehicles=True)
-    process_video(original_night_drive + data_type, out_path=original_night_drive + '-result', enhance_nighttime = True, width_hyper = (0.07, 0.4, 0.6,  0.93), height_hyper = (0.9,0.7))
+    #process_video(original_night_drive + data_type, out_path=original_night_drive + '-result', enhance_nighttime = True, width_hyper = (0.07, 0.4, 0.6,  0.93), height_hyper = (0.9,0.7))
+    # process_video(day_with_sidewalk + data_type, out_path=day_with_sidewalk + '-result')
     print('Initiating main.py for lane detection project')

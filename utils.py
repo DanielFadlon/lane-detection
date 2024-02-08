@@ -168,41 +168,38 @@ def mark_vehicles(frame, detections, color=(0, 0, 255), thickness=2, warning_iss
         
         if warning_issued:
             # Define the position for the warning text to be inside the rectangle
-            text_position = (x + 5, y + h - 5)
+            text_position = (x + 10, y + h - 10)
             warning_message = "Too Close!"
             cv2.putText(frame, warning_message, text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
 
 
-def detect_vehicles_in_frame(frame, min_area=5000, max_area=10000, aspect_ratio_range=(2.0, 3), proximity_threshold=0.75):
+def detect_vehicles_in_frame(frame, min_area=7500, max_area=100000):
     warning_issued = False
     gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
     # Edge detection
-    edges = cv2.Canny(gray_frame, 75, 300)
+    edges = cv2.Canny(gray_frame, 175, 1000)
     relevant_vehical_edges = region_of_interest_for_vehicle_detection(edges)
     # Morphological operations to close gaps in edges
-    
+    # cv2.imshow('check', relevant_vehical_edges)
+    # cv2.waitKey(0)
     # Find contours
     contours, _ = cv2.findContours(relevant_vehical_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-    
     vehicle_detections = []
     for cnt in contours:
-        rect = cv2.minAreaRect(cnt)
-        box = cv2.boxPoints(rect)
-        box = np.int0(box)
-        
-        # Extract the coordinates of the rectangle
-        x, y, w, h = cv2.boundingRect(box)
+        x, y, w, h = cv2.boundingRect(cnt)
         area = w * h
-        aspect_ratio = float(w) / h
         bottom_edge_y = y + h
         frame_height = frame.shape[0]
-        
-        # Filter based on area and aspect ratio
-        if min_area < area < max_area and aspect_ratio_range[0] < aspect_ratio < aspect_ratio_range[1]:
-            vehicle_detections.append((x, y, w, h))
 
-        # Check if the vehicle is too close based on its position or size
-            if bottom_edge_y > frame_height * proximity_threshold or area > (max_area * proximity_threshold):
+        # # Adjust the minimum area based on vertical position
+        # adjusted_min_area = min_area + (min_area * (bottom_edge_y / frame_height))
+        
+        # Check if the detected contour falls within the expected area range
+        if min_area < area < max_area:
+            vehicle_detections.append((x, y, w, h))
+            
+            # Check if the vehicle is too close based on its position or size
+            if bottom_edge_y > frame_height * 0.8 or area > (max_area * 0.5):
                 warning_issued = True
 
     mark_vehicles(frame, vehicle_detections, warning_issued)
@@ -244,3 +241,53 @@ def enhance_nighttime_visibility(frame, brightness_value = 15):
 
     enhanced_frame_gray = cv2.cvtColor(img_brightened, cv2.COLOR_BGR2GRAY)
     return enhanced_frame_gray
+
+def detect_and_highlight_sidewalk(frame):
+    # Convert the image to grayscale
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    
+    # Apply Gaussian Blur to smooth the image and reduce noise
+    blurred = cv2.GaussianBlur(gray, (5, 5), 0)
+    
+    # Edge detection using Canny
+    edges = cv2.Canny(blurred, 50, 150)
+    # cv2.imshow('Sidewalk Highlighted', edges)
+    # cv2.waitKey(0)
+    # Hough Line Transform to detect lines
+    lines = cv2.HoughLines(edges, 1, np.pi / 180, 100)
+
+    # cv2.imshow('Sidewalk Highlighted', lines)
+    # cv2.waitKey(0)
+
+    if lines is not None:
+        # Initialize lists to store the coordinates of line endpoints
+        x_coords = []
+        y_coords = []
+        
+        for line in lines:
+            for rho, theta in line:
+                a = np.cos(theta)
+                b = np.sin(theta)
+                x0 = a * rho
+                y0 = b * rho
+                x1 = int(x0 + 1000 * (-b))
+                y1 = int(y0 + 1000 * (a))
+                x2 = int(x0 - 1000 * (-b))
+                y2 = int(y0 - 1000 * (a))
+                
+                # Store the endpoints of each line
+                x_coords.extend([x1, x2])
+                y_coords.extend([y1, y2])
+        
+        if x_coords and y_coords:
+            # Find the bounding box of the sidewalk based on the line coordinates
+            min_x = min(x_coords)
+            max_x = max(x_coords)
+            min_y = min(y_coords)
+            max_y = max(y_coords)
+            
+            # Draw a rectangle around the detected sidewalk
+            cv2.rectangle(frame, (min_x, min_y), (max_x, max_y), (0, 255, 0), 3)
+            
+            # Add text to label the detected sidewalk
+            cv2.putText(frame, 'Sidewalk', (min_x, min_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
