@@ -9,16 +9,16 @@ class LaneChanged(Enum):
     LEFT = 2
 
 # Helper function for selecting the region of interest
-def region_of_interest(edges):
+def region_of_interest(edges, width_hyper = (0.1, 0.4, 0.6, 0.9), height_hyper = (0.8, 0.6)):
     height, width = edges.shape
     mask = np.zeros_like(edges)
 
     # Calculate the vertices of the trapezoid based on image size
     # These points define a trapezoid that narrows towards the top of the image, focusing on the lane area
-    bottom_left = (width * 0.1, height * 0.8)  # Adjust to move the point more to the center or outward
-    top_left = (width * 0.4, height * 0.6)  # Adjust to control the width of the top of the trapezoid
-    top_right = (width * 0.6, height * 0.6)  # Same as above, for symmetry
-    bottom_right = (width * 0.9, height * 0.8)  # Same as bottom_left, for symmetry
+    bottom_left = (width * width_hyper[0], height * height_hyper[0])  # Adjust to move the point more to the center or outward
+    top_left = (width * width_hyper[1], height * height_hyper[1])  # Adjust to control the width of the top of the trapezoid
+    top_right = (width * width_hyper[2], height * height_hyper[1])  # Same as above, for symmetry
+    bottom_right = (width * width_hyper[3], height * height_hyper[0])  # Same as bottom_left, for symmetry
 
     # Define the polygon for the region of interest as a trapezoid
     polygon = np.array([[bottom_left, top_left, top_right, bottom_right]], np.int32)
@@ -227,3 +227,20 @@ def region_of_interest_for_vehicle_detection(edges):
     # Perform a bitwise AND between the edges image and the mask to obtain the focused region of interest
     masked_image = cv2.bitwise_and(edges, mask)
     return masked_image
+
+def enhance_nighttime_visibility(frame, brightness_value = 15):
+    # Convert to HSV - HSV (Hue, Saturation, Value)
+    # the 'Value' channel represents brightness
+    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV) 
+    h, s, v = cv2.split(hsv)
+
+    # Add brightness without exceeding top limit
+    lim = 255 - brightness_value
+    v[v > lim] = 255
+    v[v <= lim] += brightness_value
+
+    final_hsv = cv2.merge((h, s, v))
+    img_brightened = cv2.cvtColor(final_hsv, cv2.COLOR_HSV2BGR)
+
+    enhanced_frame_gray = cv2.cvtColor(img_brightened, cv2.COLOR_BGR2GRAY)
+    return enhanced_frame_gray

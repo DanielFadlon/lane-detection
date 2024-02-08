@@ -1,17 +1,20 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import choose_lines, compute_center, compute_lane_width, detect_vehicles_in_frame, display_lane_change_message, draw_lines, detect_vertical_lines, region_of_interest, draw_prev_lines, LaneChanged
+from utils import choose_lines, compute_center, compute_lane_width, detect_vehicles_in_frame, display_lane_change_message, draw_lines, detect_vertical_lines, enhance_nighttime_visibility, region_of_interest, draw_prev_lines, LaneChanged
 
 # original_day_drive_with_lane_change = 'data/original_day_drive_with_lane_change'
 original_day_drive_with_lane_change = 'data/lane_changed_1'
 original_night_drive_with_crosswalk = 'data/original_night_drive_with_crosswalk'
+original_night_drive = 'data/original_night_drive'
+test = 'data/test15'
 data_type = '.mp4'
 
 
 
 # Main function to process the video
-def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=False, enhance_nighttime=False):
+def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=False, enhance_nighttime=False, 
+                  width_hyper = (0.1, 0.4, 0.6, 0.9), height_hyper = (0.8, 0.6)):
     cap = cv2.VideoCapture(video_path)
 
     # Define the codec and create VideoWriter object
@@ -52,15 +55,18 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
         if frame_counter == 0 and lane_change_status is not None:
             lane_change_status = None
 
-        # Greyscale the frame
-        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        if enhance_nighttime:
+            gray_frame = enhance_nighttime_visibility(frame)
+        else:   
+        #Greyscale the frame
+            gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Apply gaussian blur for smoothing out the frame
         blurred_frame = cv2.GaussianBlur(src=gray_frame, ksize=(5,5), sigmaX=0)
         # Find edges that will be point of intrest in our image
         edges = cv2.Canny(blurred_frame, 75, 220)
         vertical_lines = detect_vertical_lines(edges)
-        masked_edges = region_of_interest(vertical_lines)
+        masked_edges = region_of_interest(vertical_lines, width_hyper, height_hyper)
         lines = cv2.HoughLinesP(masked_edges, 2, np.pi/180, 100, np.array([]), minLineLength=100, maxLineGap=500)
         
         if lines is None:
@@ -85,7 +91,7 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
         prev_lines = updated_lines
  
         if lane_width is not None and lane_width < required_lane_width * 0.9:
-            lane_changed_message_counter = 500
+            lane_changed_message_counter = 400
             if required_lane_center < current_lane_center:
                 lane_change_status = LaneChanged.LEFT
             else:
@@ -109,5 +115,6 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
 
 if __name__ == '__main__':
     #process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result')
-    process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result', detect_vehicles=True)
+    #process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result', detect_vehicles=True)
+    process_video(original_night_drive + data_type, out_path=original_night_drive + '-result', enhance_nighttime = True, width_hyper = (0.07, 0.4, 0.6,  0.93), height_hyper = (0.9,0.7))
     print('Initiating main.py for lane detection project')
