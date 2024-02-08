@@ -40,7 +40,7 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
         ret, frame = cap.read()
         if not ret:
             break
-
+        frame_copy_for_car_detection = frame.copy()
         if prev_lines is not None:
             frame_with_lines = draw_prev_lines(frame, prev_lines, lane_change_status)
             
@@ -100,7 +100,7 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
         if detect_sidewalk:
             detect_and_highlight_sidewalk(frame)
         if detect_vehicles:
-            detect_vehicles_in_frame(frame)
+            detect_vehicles_in_frame(frame, frame_copy_for_car_detection)
 
         # Save the frame to a video file (this is used in order to create the submission video)
         out.write(frame_with_lines)

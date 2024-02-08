@@ -2,7 +2,7 @@ import cv2
 from matplotlib import pyplot as plt
 import numpy as np
 from  enum import Enum 
-
+i=0
 
 class LaneChanged(Enum):
     RIGHT = 1,
@@ -173,17 +173,22 @@ def mark_vehicles(frame, detections, color=(0, 0, 255), thickness=2, warning_iss
             cv2.putText(frame, warning_message, text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
 
 
-def detect_vehicles_in_frame(frame, min_area=7500, max_area=100000):
+def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=7500, max_area=100000):
+    global i
+    i+=1
     warning_issued = False
-    gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    gray_frame = cv2.cvtColor(frame_copy_for_car_detection, cv2.COLOR_BGR2GRAY)
     # Edge detection
     edges = cv2.Canny(gray_frame, 175, 1000)
-    relevant_vehical_edges = region_of_interest_for_vehicle_detection(edges)
+    #relevant_vehical_edges = region_of_interest_for_vehicle_detection(edges)
+    if i%40 == 0:
+        cv2.imshow('check', edges)
+        cv2.waitKey(0)
     # Morphological operations to close gaps in edges
     # cv2.imshow('check', relevant_vehical_edges)
     # cv2.waitKey(0)
     # Find contours
-    contours, _ = cv2.findContours(relevant_vehical_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     vehicle_detections = []
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
