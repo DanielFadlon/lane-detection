@@ -100,7 +100,7 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
         if detect_sidewalk:
             detect_and_highlight_sidewalk(frame)
         if detect_vehicles:
-          detect_vehicles_in_frame(frame)
+            detect_vehicles_in_frame(frame)
 
         # Save the frame to a video file (this is used in order to create the submission video)
         out.write(frame_with_lines)
@@ -114,8 +114,8 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    process_video(day_drive  + data_type, out_path=day_drive + '-result')
-    #process_video(original_day_drive_with_lane_change + data_type, out_path=original_day_drive_with_lane_change + '-result', detect_vehicles=True)
+    # process_video(day_drive  + data_type, out_path=day_drive + '-result')
+    process_video(day_drive + data_type, out_path=day_drive + '-result', detect_vehicles=True)
     #process_video(original_night_drive + data_type, out_path=original_night_drive + '-result', enhance_nighttime = True, width_hyper = (0.07, 0.4, 0.6,  0.93), height_hyper = (0.9,0.7))
     # process_video(day_with_sidewalk + data_type, out_path=day_with_sidewalk + '-result')
     print('Initiating main.py for lane detection project')
