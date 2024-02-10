@@ -1,6 +1,8 @@
 import cv2
 import numpy as np
 
+from lane_change.lane_change import LaneChangeDirection
+
 def choose_lines(lines, min_dist_x=75, return_num_lines=True):
     num_lines = len(lines)
     if lines is None or num_lines == 0:
