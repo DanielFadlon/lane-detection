@@ -63,16 +63,16 @@ def filter_overlapping_rectangles(rectangles):
     return filtered_rectangles
 
 
-MAX_BUFFER_SIZE = 30
+MAX_BUFFER_SIZE = 200
 vehicle_detection_buffer = deque(maxlen=MAX_BUFFER_SIZE)
 
-def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=1000, max_area=100000):
+def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=2000, max_area=100000):
     global vehicle_detection_buffer
     warning_issued = False
     gray_frame = cv2.cvtColor(frame_copy_for_car_detection, cv2.COLOR_BGR2GRAY)
     
     # Edge detection
-    edges = cv2.Canny(gray_frame, 100, 500)
+    edges = cv2.Canny(gray_frame, 230, 500)
     relevant_vehicle_edges = region_of_interest_for_vehicle_detection(edges, frame)
     
     # Find contours
@@ -158,10 +158,10 @@ def region_of_interest_for_vehicle_detection(edges, frame):
     mask = np.zeros_like(edges)
 
     # trapezoid
-    bottom_left = (int(width * 0.35), int(height * 0.6))
-    top_left = (int(width * 0.35), int(height * 0.5))
-    top_right = (int(width * 0.65), int(height * 0.5))
-    bottom_right = (int(width * 0.65), int(height * 0.6))
+    bottom_left = (int(width * 0.3), int(height * 0.6))
+    top_left = (int(width * 0.3), int(height * 0.48))
+    top_right = (int(width * 0.6), int(height * 0.48))
+    bottom_right = (int(width * 0.6), int(height * 0.6))
 
     # Points need to be in a numpy array of shape ROWSx1x2 where ROWS is the number of vertices
     # Define the polygon for the region of interest as a trapezoid
