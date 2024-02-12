@@ -60,7 +60,7 @@ def filter_overlapping_rectangles(rectangles):
 MAX_BUFFER_SIZE = 100
 vehicle_detection_buffer = deque(maxlen=MAX_BUFFER_SIZE)
 
-def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=1500, max_area=6000):
+def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=1500, max_area=10000):
     global vehicle_detection_buffer
     warning_issued = False
     gray_frame = cv2.cvtColor(frame_copy_for_car_detection, cv2.COLOR_BGR2GRAY)
@@ -85,17 +85,11 @@ def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=1500,
     for cnt in contours:
         x, y, w, h = cv2.boundingRect(cnt)
         area = w * h
-        bottom_edge_y = y + h
-        frame_height = frame.shape[0]
         ratio = w / h
 
         # Check if the detected contour falls within the expected area range
-        if min_area < area < max_area and ratio < 2:
+        if min_area < area and ratio < 2.2:
             current_frame_detections.append((x, y, w, h))
-            
-            # Check if the vehicle is too close based on its position or size
-            if bottom_edge_y > frame_height * 0.8 or area > (max_area * 0.5):
-                warning_issued = True
     
     # Add current frame detections to the buffer
     vehicle_detection_buffer.append(current_frame_detections)
@@ -128,7 +122,6 @@ def mark_vehicles(frame, vehicle_detections):
 def region_of_interest_for_vehicle_detection(edges, frame):
     height, width = edges.shape
     mask = np.zeros_like(edges)
-
     # trapezoid
     bottom_left = (int(width * 0.3), int(height * 0.58))
     top_left = (int(width * 0.3), int(height * 0.5))
@@ -141,7 +134,7 @@ def region_of_interest_for_vehicle_detection(edges, frame):
     pts = polygon.reshape((-1, 1, 2))
 
     # Draw the trapezoid on the image
-    cv2.polylines(frame, [pts], isClosed=True, color=(0, 255, 0), thickness=2)
+    # cv2.polylines(frame, [pts], isClosed=True, color=(0, 255, 0), thickness=2)
     # Fill the specified polygon area in the mask with white (255)
     cv2.fillPoly(mask, polygon, 255)
 

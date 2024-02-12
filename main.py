@@ -10,7 +10,7 @@ from utils import display_lane_change_message, region_of_interest
 from vehicle_detection.vehicle_detection import detect_vehicles_in_frame
 
 # day_drive = 'data/day_drive'
-day_drive = 'data/test-3'
+day_drive = 'data/test-3-10-35'
 original_night_drive = 'data/original_night_drive'
 day_with_sidewalk = 'data/day_with_sidewalk'
 data_type = '.mp4'
