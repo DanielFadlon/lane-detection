@@ -1,21 +1,6 @@
 import cv2
 import numpy as np
-
-# def mark_vehicles(frame, detections, color=(0, 0, 255), thickness=2, warning_issued = False):
-#     for (x, y, w, h) in detections:
-#         # Draw a rectangle around each detected vehicle
-#         cv2.rectangle(frame, (x, y), (x+w, y+h), color, thickness)
-        
-#         if warning_issued:
-#             # Define the position for the warning text to be inside the rectangle
-#             text_position = (x + 10, y + h - 10)
-#             warning_message = "Too Close!"
-#             cv2.putText(frame, warning_message, text_position, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
-
 from collections import deque
-
-from collections import deque
-import numpy as np
 
 def calculate_iou(rect1, rect2):
     x1, y1, w1, h1 = rect1
@@ -38,20 +23,29 @@ def filter_overlapping_rectangles(rectangles):
 
     for i, rect1 in enumerate(rectangles):
         rect1, _ = rect1
+        aspect_ratio_1 = (rect1[2] - rect1[0]) / (rect1[3] - rect1[1])
         if i in removed_indices:
             continue
 
         for j, rect2 in enumerate(rectangles[i + 1:], start=i + 1):
             rect2, _ = rect2
+            aspect_ratio_2 = (rect2[2] - rect2[0]) / (rect2[3] - rect2[1])
             if j in removed_indices:
                 continue
 
             iou = calculate_iou(rect1, rect2)
-            if iou > 0.1:  # Significant overlap
+            if iou > 0.15:  # Significant overlap
                 area1 = rect1[2] * rect1[3]
                 area2 = rect2[2] * rect2[3]
-                if area1 >= area2:
+                offset = 0.2
+                if aspect_ratio_1 + offset < aspect_ratio_2:
                     removed_indices.add(j)
+                elif aspect_ratio_2 + offset < aspect_ratio_1:
+                    removed_indices.add(i)
+                elif area1 >= area2:
+                    removed_indices.add(j)
+                elif area2 >= area1:
+                    removed_indices.add(i)
                 else:
                     removed_indices.add(i)
                     break
@@ -63,10 +57,10 @@ def filter_overlapping_rectangles(rectangles):
     return filtered_rectangles
 
 
-MAX_BUFFER_SIZE = 200
+MAX_BUFFER_SIZE = 100
 vehicle_detection_buffer = deque(maxlen=MAX_BUFFER_SIZE)
 
-def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=1500, max_area=100000):
+def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=1500, max_area=6000):
     global vehicle_detection_buffer
     warning_issued = False
     gray_frame = cv2.cvtColor(frame_copy_for_car_detection, cv2.COLOR_BGR2GRAY)
@@ -78,12 +72,8 @@ def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=1500,
 
     # Define kernel size
     kernel = np.ones((3,3),np.uint8)
-    # Dilate
     dilated = cv2.dilate(edges, kernel, iterations=1)
-
-    # Erode
     eroded = cv2.erode(dilated, kernel, iterations=1)
-
     relevant_vehicle_edges = region_of_interest_for_vehicle_detection(eroded, frame)
 
     
@@ -100,7 +90,7 @@ def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=1500,
         ratio = w / h
 
         # Check if the detected contour falls within the expected area range
-        if min_area < area < max_area and 0.8 < ratio < 1.5:
+        if min_area < area < max_area and ratio < 2:
             current_frame_detections.append((x, y, w, h))
             
             # Check if the vehicle is too close based on its position or size
@@ -135,46 +125,15 @@ def mark_vehicles(frame, vehicle_detections):
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 0), 2)
 
 
-# def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=4500, max_area=100000):
-#     warning_issued = False
-#     gray_frame = cv2.cvtColor(frame_copy_for_car_detection, cv2.COLOR_BGR2GRAY)
-#     # Edge detection
-#     edges = cv2.Canny(gray_frame, 175, 1000)
-#     relevant_vehical_edges = region_of_interest_for_vehicle_detection(edges, frame)
-#     # Morphological operations to close gaps in edges
-#     # cv2.imshow('check', relevant_vehical_edges)
-#     # cv2.waitKey(0)
-#     # Find contours
-#     contours, _ = cv2.findContours(relevant_vehical_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-#     vehicle_detections = []
-#     for cnt in contours:
-#         x, y, w, h = cv2.boundingRect(cnt)
-#         area = w * h
-#         bottom_edge_y = y + h
-#         frame_height = frame.shape[0]
-
-#         # # Adjust the minimum area based on vertical position
-#         # adjusted_min_area = min_area + (min_area * (bottom_edge_y / frame_height))
-        
-#         # Check if the detected contour falls within the expected area range
-#         if min_area < area < max_area:
-#             vehicle_detections.append((x, y, w, h))
-            
-#             # Check if the vehicle is too close based on its position or size
-#             if bottom_edge_y > frame_height * 0.8 or area > (max_area * 0.5):
-#                 warning_issued = True
-
-#     mark_vehicles(frame, vehicle_detections, warning_issued)
-
 def region_of_interest_for_vehicle_detection(edges, frame):
     height, width = edges.shape
     mask = np.zeros_like(edges)
 
     # trapezoid
-    bottom_left = (int(width * 0.3), int(height * 0.6))
-    top_left = (int(width * 0.3), int(height * 0.48))
-    top_right = (int(width * 0.6), int(height * 0.48))
-    bottom_right = (int(width * 0.6), int(height * 0.6))
+    bottom_left = (int(width * 0.3), int(height * 0.58))
+    top_left = (int(width * 0.3), int(height * 0.5))
+    top_right = (int(width * 0.56), int(height * 0.5))
+    bottom_right = (int(width * 0.56), int(height * 0.58))
 
     # Points need to be in a numpy array of shape ROWSx1x2 where ROWS is the number of vertices
     # Define the polygon for the region of interest as a trapezoid
