@@ -66,16 +66,29 @@ def filter_overlapping_rectangles(rectangles):
 MAX_BUFFER_SIZE = 200
 vehicle_detection_buffer = deque(maxlen=MAX_BUFFER_SIZE)
 
-def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=2000, max_area=100000):
+def detect_vehicles_in_frame(frame, frame_copy_for_car_detection, min_area=1500, max_area=100000):
     global vehicle_detection_buffer
     warning_issued = False
     gray_frame = cv2.cvtColor(frame_copy_for_car_detection, cv2.COLOR_BGR2GRAY)
     
     # Edge detection
-    edges = cv2.Canny(gray_frame, 230, 500)
-    relevant_vehicle_edges = region_of_interest_for_vehicle_detection(edges, frame)
+    # Apply gaussian blur for smoothing out the frame
+    blurred_frame = cv2.GaussianBlur(src=gray_frame, ksize=(5,5), sigmaX=0)
+    edges = cv2.Canny(blurred_frame, 100, 500)
+
+    # Define kernel size
+    kernel = np.ones((3,3),np.uint8)
+    # Dilate
+    dilated = cv2.dilate(edges, kernel, iterations=1)
+
+    # Erode
+    eroded = cv2.erode(dilated, kernel, iterations=1)
+
+    relevant_vehicle_edges = region_of_interest_for_vehicle_detection(eroded, frame)
+
     
     # Find contours
+    # contours, _ = cv2.findContours(eroded, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     contours, _ = cv2.findContours(relevant_vehicle_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     
     current_frame_detections = []  # Store current frame detections
