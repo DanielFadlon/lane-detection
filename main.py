@@ -1,17 +1,19 @@
 import cv2
 import numpy as np
 import matplotlib.pyplot as plt
-from utils import choose_lines, compute_center, compute_lane_width, detect_and_highlight_sidewalk, detect_vehicles_in_frame, display_lane_change_message, draw_lines, detect_vertical_lines, enhance_nighttime_visibility, region_of_interest, draw_prev_lines, LaneChanged
+from utils import choose_lines, choose_lines_curve, compute_center, compute_lane_width, detect_vehicles_in_frame, display_lane_change_message, draw_curved_lines, draw_lines, detect_vertical_lines, enhance_nighttime_visibility, region_of_interest, draw_prev_lines, LaneChanged
 
 day_drive = 'data/day_drive'
 original_night_drive = 'data/original_night_drive'
 day_with_sidewalk = 'data/day_with_sidewalk'
+day_drive_with_sidewalk = 'data/dayDriveWithSidewalk'
+day_drive_with_curvature = 'data/orginal_curvature'
 data_type = '.mp4'
-
+print(day_drive_with_sidewalk)
 
 
 # Main function to process the video
-def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=False, enhance_nighttime=False, 
+def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=False, enhance_nighttime=False, detect_curve = False,  
                   width_hyper = (0.1, 0.4, 0.6, 0.9), height_hyper = (0.8, 0.6)):
     cap = cv2.VideoCapture(video_path)
 
@@ -97,10 +99,11 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
 
         lane_changed_message_counter = display_lane_change_message(frame, lane_changed_message_counter, lane_change_status)
 
-        if detect_sidewalk:
-            detect_and_highlight_sidewalk(frame)
         if detect_vehicles:
             detect_vehicles_in_frame(frame, frame_copy_for_car_detection)
+        if detect_curve:
+            lines_curve = choose_lines_curve(lines)
+            frame_with_lines = draw_curved_lines(frame_with_lines, lines_curve, color=(0,0,255))
 
         # Save the frame to a video file (this is used in order to create the submission video)
         out.write(frame_with_lines)
@@ -114,8 +117,11 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    # process_video(day_drive  + data_type, out_path=day_drive + '-result')
-    process_video(day_drive + data_type, out_path=day_drive + '-result', detect_vehicles=True)
-    #process_video(original_night_drive + data_type, out_path=original_night_drive + '-result', enhance_nighttime = True, width_hyper = (0.07, 0.4, 0.6,  0.93), height_hyper = (0.9,0.7))
+    #process_video(day_drive  + data_type, out_path=day_drive + '-result')
+    #process_video(day_drive + data_type, out_path=day_drive + '-result', detect_vehicles=True)
+    process_video(original_night_drive + data_type, out_path=original_night_drive + '-result', enhance_nighttime = True, width_hyper = (0.07, 0.4, 0.6,  0.93), height_hyper = (0.9,0.7))
     # process_video(day_with_sidewalk + data_type, out_path=day_with_sidewalk + '-result')
+    #process_video(day_drive_with_sidewalk + data_type, out_path=day_drive_with_sidewalk + '-result')
+    # process_video(day_drive_with_curvature + data_type, out_path=day_drive_with_curvature + '-result')
+    #process_video(day_drive  + data_type, out_path=day_drive + 'curve-result', detect_curve=True)
     print('Initiating main.py for lane detection project')
