@@ -2,8 +2,9 @@ import cv2
 import numpy as np
 
 from lane_change.lane_change import LaneChangeDirection
+from utils import is_orientation_within_angle_range
 
-def choose_lines(lines, min_dist_x=75, return_num_lines=True):
+def choose_lines(lines, min_dist_x=75):
     num_lines = len(lines)
     if lines is None or num_lines == 0:
         return None, 0
@@ -15,7 +16,7 @@ def choose_lines(lines, min_dist_x=75, return_num_lines=True):
     num_clusters = 0
     for line in lines:
         x1, y1, x2, y2 = line[0]
-        if not is_line_orientation_within_angle_range((x1, y1, x2, y2), 30, 150):
+        if not is_orientation_within_angle_range((x1, y1, x2, y2), 30, 150):
             continue
         # Use the midpoint or any other representative point of the line for clustering
         midpoint_x = (x1 + x2) / 2
@@ -79,13 +80,6 @@ def draw_prev_lines(frame, lines, lane_change_status, thickness=6):
     cv2.line(frame, (x1, y1), (x2, y2), (255, 0, 0), thickness)
     cv2.line(frame, (x3, y3), (x4, y4), (255, 0, 0), thickness)
     return frame
-
-
-def is_line_orientation_within_angle_range(line, min_degree, max_degree):
-    x1, y1, x2, y2 = line
-    theta = np.arctan2(y2 - y1, x2 - x1)
-    return min_degree * np.pi/180 < np.abs(theta) < max_degree * np.pi/180
-
 
 def detect_vertical_lines(edges):
     # Define a vertical line convolution kernel

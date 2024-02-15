@@ -1,11 +1,7 @@
 import cv2
 import numpy as np
-from  enum import Enum 
 
-
-class LaneChangeDirection(Enum):
-    RIGHT = 1,
-    LEFT = 2
+from lane_change.lane_direction import LaneChangeDirection
 
 class LaneChangeHandler:
 

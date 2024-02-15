@@ -1,13 +1,15 @@
 import cv2
 import numpy as np
-import matplotlib.pyplot as plt
-from crosswalk.crosswalk import detect_and_highlight_sidewalk
-from lane_change.lane_change import LaneChangeDirection, LaneChangeHandler
-from lane_change.lane_change_utils import compute_center, compute_lane_width
-from lines import choose_lines, detect_vertical_lines, draw_lines, draw_prev_lines
-from night_time.night_time import enhance_nighttime_visibility
-from utils import display_lane_change_message, region_of_interest
-from vehicle_detection.vehicle_detection import detect_vehicles_in_frame
+from enhancements.curve.curve import choose_lines_curve, draw_curved_lines
+
+from lane_change.lane_direction import LaneChangeDirection
+from lane_change.lane_change_utils import compute_center, compute_lane_width, display_lane_change_message
+from lines.lines import choose_lines, detect_vertical_lines, draw_lines, draw_prev_lines
+
+from enhancements.night_time.night_time import enhance_nighttime_visibility
+from enhancements.vehicle_detection.vehicle_detection import detect_vehicles_in_frame
+
+from utils import region_of_interest
 
 # day_drive = 'data/day_drive'
 day_drive = 'data/test-3-10-35'
@@ -18,7 +20,7 @@ data_type = '.mp4'
 
 
 # Main function to process the video
-def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=False, enhance_nighttime=False, 
+def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime=False, detect_curve = False, 
                   width_hyper = (0.1, 0.4, 0.6, 0.9), height_hyper = (0.8, 0.6)):
     cap = cv2.VideoCapture(video_path)
 
@@ -105,10 +107,11 @@ def process_video(video_path, out_path, detect_sidewalk=False, detect_vehicles=F
 
         lane_changed_message_counter = display_lane_change_message(frame, lane_changed_message_counter, lane_change_status)
 
-        if detect_sidewalk:
-            detect_and_highlight_sidewalk(frame)
         if detect_vehicles:
             detect_vehicles_in_frame(frame, frame_copy_for_car_detection)
+        if detect_curve:
+            lines_curve = choose_lines_curve(lines)
+            frame_with_lines = draw_curved_lines(frame_with_lines, lines_curve, color=(0,0,255))
 
         # Save the frame to a video file (this is used in order to create the submission video)
         out.write(frame_with_lines)
