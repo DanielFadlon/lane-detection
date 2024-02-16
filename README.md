@@ -5,13 +5,17 @@ It focuses on detecting lane lines, lane changes, and offers additional support 
 
 # Main Features
 ### Lane Line Detection: Identifies and highlights lane lines in dashcam footage.
-[![Watch the video](images/day.png)](https://www.youtube.com/watch?v=dQw4w9WgXcQ](https://www.youtube.com/watch?v=qNArhAMxmMY "Watch the video")
 ### Lane Change Detection: Identifies when a lane change takes place and indicates the direction of the change.
+
+[![Watch the video](images/day.png)](https://www.youtube.com/watch?v=qNArhAMxmMY "Watch the video")
 
 # Enhancements
 ### Nighttime Visibility Enhancement: Improves video visibility during nighttime for better lane detection.
+[![Watch the video](images/night.png)](https://www.youtube.com/watch?v=Trg7rkpSkHs "Watch the video")
 ### Vehicle Detection: Detects vehicles within the dashcam's field of view and provides caution alerts.
+[![Watch the video](images/vehicle_detection.png)]((https://www.youtube.com/watch?v=VueK55IdYVA "Watch the video")
 ### Curve Detection: Identifies curves in the road ahead and alerts accordingly.
+[![Watch the video](images/curve.png)](https://www.youtube.com/watch?v=cGduvcHB0Tk "Watch the video")
 
 ## Customizing for Different Videos
 The performance of the lane detection system, including enhancements for nighttime visibility, vehicle detection, and curve detection, relies heavily on specific hyperparameters that are aligned with the characteristics of the input video. These hyperparameters include thresholds for edge detection, blur levels, region of interest specifications, and more.
