@@ -163,7 +163,6 @@ def detect_vehicles_in_frame(frame, frame_copy_for_car_detection):
         mark_vehicles(frame, detections, y_th = 0.54, x_th = 0.38)
     
     frame_counter += 1
-    cv2.putText(frame, f"C: {frame_counter}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
 
 def mark_vehicles(frame, vehicle_detections, y_th, x_th):
