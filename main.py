@@ -31,12 +31,12 @@ class VideoType(Enum):
             return 'data/day_drive'
 
 ###################### CHOOSE THE VIDEO TO PROCESS ######################
-chose_video_type = VideoType.LANE_CHANGE
+chose_video_type = VideoType.DETECT_VEHICLES
 #########################################################################
 
 
-def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime=False, detect_curve = False, 
-                  width_hyper = (0.1, 0.4, 0.6, 0.9), height_hyper = (0.8, 0.6)):
+def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime=False, detect_curve = False,     
+                    region_of_interest_hyp = ((0.1, 0.8), (0.4, 0.6), (0.6, 0.6), (0.9, 0.8))):
     cap = cv2.VideoCapture(video_path)
 
     # Define the codec and create VideoWriter object
@@ -78,14 +78,14 @@ def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime
         # Find edges that will be point of interest in our image
         edges = cv2.Canny(blurred_frame, 75, 220)
         vertical_lines = detect_vertical_lines(edges)
-        masked_edges = region_of_interest(vertical_lines, width_hyper, height_hyper)
+        masked_edges = region_of_interest(vertical_lines, *region_of_interest_hyp)
         lines = cv2.HoughLinesP(masked_edges, 2, np.pi/180, 100, np.array([]), minLineLength=100, maxLineGap=500)
         
         if lines is None:
             frame_with_lines = draw_prev_lines(frame, prev_lines, lane_change_status)
             continue
         
-        updated_lines, num_selected_lines = choose_lines(lines, min_dist_x=75, return_num_lines=True)
+        updated_lines, num_selected_lines = choose_lines(lines, min_dist_x=75)
 
         # Lane change detection
         if lane_change_status is not None and frame_counter == 11:

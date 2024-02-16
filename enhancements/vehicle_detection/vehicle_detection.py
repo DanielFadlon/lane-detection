@@ -2,7 +2,12 @@ import cv2
 import numpy as np
 from collections import deque
 
+from utils import region_of_interest
+
 def calculate_iou(rect1, rect2):
+    """
+        Given two rectangles, this function calculates the Intersection over Union (IoU) between them.
+    """
     x1, y1, w1, h1 = rect1
     x2, y2, w2, h2 = rect2
     x_left = max(x1, x2)
@@ -18,6 +23,9 @@ def calculate_iou(rect1, rect2):
     return intersection_area / union_area
 
 def get_average_rect(rect1, rect2):
+    """
+        Given two rectangles, this function calculates the average rectangle.
+    """
     x1, y1, w1, h1 = rect1
     x2, y2, w2, h2 = rect2
     x = (x1 + x2) / 2
@@ -27,6 +35,10 @@ def get_average_rect(rect1, rect2):
     return (x, y, w, h)
 
 def filter_overlapping_rectangles(rectangles):
+    """
+        Given a list of rectangles, this function filters out overlapping rectangles.
+        Mainly, it removes rectangles that have an IoU greater than 0.3 and replaces them with an average rectangle.
+    """
     filtered_rectangles = []
     removed_indices = set()
     global MAX_BUFFER_SIZE
@@ -42,25 +54,20 @@ def filter_overlapping_rectangles(rectangles):
                 continue
 
             iou = calculate_iou(rect1, rect2)
-            if iou > 0.3:  # Significant overlap
-                  # Calculate the average dimensions
+            if iou > 0.3:
                 avg_width = (rect1[2] + rect2[2]) / 2
                 avg_height = (rect1[3] + rect2[3]) / 2
                 
-                # Determine the change for width and height
                 change_width = abs(avg_width - rect2[2])
                 change_height = abs(avg_height - rect2[3])
                 
                 # Define a threshold for considering a change as "large"
-                threshold = 10  # This value is arbitrary; adjust based on your application
-                
-                # Check if the change is large
+                threshold = 10
+                # Update to average rectangle if the change is large. Otherwise, remove the "old" rectangle
                 if change_width > threshold or change_height > threshold:
-                    # Calculate the average rectangle position
                     avg_rect_x = (rect1[0] + rect2[0]) / 2
                     avg_rect_y = (rect1[1] + rect2[1]) / 2
-                    
-                    # Create the average rectangle
+
                     avg_rect = (avg_rect_x, avg_rect_y, avg_width, avg_height)
                     
                     # Update one of the rectangles to the average rectangle
@@ -68,10 +75,10 @@ def filter_overlapping_rectangles(rectangles):
                     removed_indices.add(j)
                     filtered_rectangles.append((0, avg_rect))
                 else:
-                    # Mark the other rectangle for removal
+                    # Remove the "old" rectangle (happen when the change is not large enough)
                     removed_indices.add(i)
                 break
-        
+    
     for i, rect in enumerate(rectangles):
         if i not in removed_indices:
             filtered_rectangles.append(rect)
@@ -82,6 +89,22 @@ def filter_overlapping_rectangles(rectangles):
 MAX_BUFFER_SIZE = 100
 vehicle_detection_buffer = deque(maxlen=MAX_BUFFER_SIZE)
 frame_counter = 0
+
+def get_region(frame_counter):
+    region_of_interest_hyp = {
+        0: ((0.3, 0.58), (0.3, 0.5), (0.56, 0.5), (0.56, 0.58)),
+        250: ((0.35, 0.58), (0.35, 0.5), (0.56, 0.5), (0.56, 0.58)),
+        450: ((0.35, 0.58), (0.35, 0.5), (0.6, 0.5), (0.6, 0.58))
+    }
+
+    if frame_counter < 250:
+        return region_of_interest_hyp[0]
+    elif frame_counter < 450:
+        return region_of_interest_hyp[250]
+    else:
+        return region_of_interest_hyp[450]
+
+
 
 def detect_vehicles_in_frame(frame, frame_copy_for_car_detection):
     global vehicle_detection_buffer
@@ -98,11 +121,14 @@ def detect_vehicles_in_frame(frame, frame_copy_for_car_detection):
         kernel = np.ones((3,3),np.uint8)
         dilated = cv2.dilate(edges, kernel, iterations=1)
         eroded = cv2.erode(dilated, kernel, iterations=1)
-        relevant_vehicle_edges = region_of_interest_for_vehicle_detection(eroded, frame, frame_counter)
+
+        region_hyp = get_region(frame_counter)
+        relevant_vehicle_edges = region_of_interest(eroded, *region_hyp)
+        # relevant_vehicle_edges = region_of_interest_for_vehicle_detection(eroded, frame, frame_counter)
         # Find contours
         contours, _ = cv2.findContours(relevant_vehicle_edges, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         
-        current_frame_detections = []  # Store current frame detections
+        current_frame_detections = []
         for cnt in contours:
             x, y, w, h = cv2.boundingRect(cnt)
             area = w * h
@@ -124,14 +150,8 @@ def detect_vehicles_in_frame(frame, frame_copy_for_car_detection):
         # Add current frame detections to the buffer
         vehicle_detection_buffer.append(current_frame_detections)
 
-        # Consolidate all rectangles into a single list
         all_rectangles = [(rect, f_count) for f_count, frame_rects in enumerate(vehicle_detection_buffer) for rect in frame_rects]
-
-        # Filter the consolidated list of rectangles
         filtered_rectangles = filter_overlapping_rectangles(all_rectangles)
-
-        # If you need to clear the deque and replace it with filtered rectangles
-        # Note: This step will depend on how you wish to use the filtered results
         vehicle_detection_buffer.clear()
         # reproduce the buffer with the filtered rectangles
         for i in range(MAX_BUFFER_SIZE):
@@ -140,53 +160,21 @@ def detect_vehicles_in_frame(frame, frame_copy_for_car_detection):
 
     # Draw detections from the buffer
     for detections in vehicle_detection_buffer:
-        mark_vehicles(frame, detections, y_th = 0.54 * frame.shape[0])
+        mark_vehicles(frame, detections, y_th = 0.54, x_th = 0.38)
     
     frame_counter += 1
     cv2.putText(frame, f"C: {frame_counter}", (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
 
 
-def mark_vehicles(frame, vehicle_detections, y_th):
+def mark_vehicles(frame, vehicle_detections, y_th, x_th):
+    if not 0 < y_th < 1 or not 0 < x_th < 1:
+        raise ValueError("y_th and x_th should be between 0 and 1")
+    
     for x, y, w, h in vehicle_detections:
-        is_close_y = y + h/2 > y_th
-        is_close_x = x + w/2 > frame.shape[1] * 0.38 #frame.shape[1] * 0.35 < x < frame.shape[1] * 0.7
+        is_close_y = y + h/2 > frame.shape[0] * y_th
+        is_close_x = x + w/2 > frame.shape[1] * x_th
         if is_close_y and is_close_x:
             cv2.putText(frame, "Caution!!!", (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
         elif is_close_x:
             cv2.putText(frame, "Adjacent Lane!", (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 0), 2)
-
-
-def region_of_interest_for_vehicle_detection(edges, frame, frame_counter):
-    height, width = edges.shape
-    mask = np.zeros_like(edges)
-    if frame_counter < 250:
-        # trapezoid
-        bottom_left = (int(width * 0.3), int(height * 0.58))
-        top_left = (int(width * 0.3), int(height * 0.5))
-        top_right = (int(width * 0.56), int(height * 0.5))
-        bottom_right = (int(width * 0.56), int(height * 0.58))
-    elif frame_counter < 450:
-    # trapezoid
-        bottom_left = (int(width * 0.35), int(height * 0.58))
-        top_left = (int(width * 0.35), int(height * 0.5))
-        top_right = (int(width * 0.56), int(height * 0.5))
-        bottom_right = (int(width * 0.56), int(height * 0.58))
-    else:
-        bottom_left = (int(width * 0.35), int(height * 0.58))
-        top_left = (int(width * 0.35), int(height * 0.5))
-        top_right = (int(width * 0.6), int(height * 0.5))
-        bottom_right = (int(width * 0.6), int(height * 0.58))
-    # Points need to be in a numpy array of shape ROWSx1x2 where ROWS is the number of vertices
-    # Define the polygon for the region of interest as a trapezoid
-    polygon = np.array([[bottom_left, top_left, top_right, bottom_right]], np.int32)
-    pts = polygon.reshape((-1, 1, 2))
-
-    # Draw the trapezoid on the image
-    # cv2.polylines(frame, [pts], isClosed=True, color=(0, 255, 0), thickness=2)
-    # Fill the specified polygon area in the mask with white (255)
-    cv2.fillPoly(mask, polygon, 255)
-
-    # Perform a bitwise AND between the edges image and the mask to obtain the focused region of interest
-    masked_image = cv2.bitwise_and(edges, mask)
-    return masked_image
