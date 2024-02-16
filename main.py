@@ -1,6 +1,6 @@
 import cv2
 import numpy as np
-from enhancements.curve.curve import choose_lines_curve, draw_curved_lines
+from enum import Enum
 
 from lane_change.lane_direction import LaneChangeDirection
 from lane_change.lane_change_utils import compute_center, compute_lane_width, display_lane_change_message
@@ -8,18 +8,33 @@ from lines.lines import choose_lines, detect_vertical_lines, draw_lines, draw_pr
 
 from enhancements.night_time.night_time import enhance_nighttime_visibility
 from enhancements.vehicle_detection.vehicle_detection import detect_vehicles_in_frame
+from enhancements.curve.curve import choose_lines_curve, draw_curved_lines
 
 from utils import region_of_interest
 
-# day_drive = 'data/day_drive'
-day_drive = 'data/test-3-10-35'
-original_night_drive = 'data/original_night_drive'
-day_with_sidewalk = 'data/day_with_sidewalk'
 data_type = '.mp4'
 
+class VideoType(Enum):
+    LANE_CHANGE = 1
+    NIGHT_TIME = 2
+    DETECT_VEHICLES = 3
+    DETECT_CURVES = 4
+
+    def get_video_name(self):
+        if self == VideoType.LANE_CHANGE:
+            return 'data/day_drive' 
+        elif self == VideoType.NIGHT_TIME:
+            return 'data/original_night_drive'
+        elif self == VideoType.DETECT_VEHICLES:
+            return 'data/vehicle_detection_drive'
+        elif self == VideoType.DETECT_CURVES:
+            return 'data/day_drive'
+
+###################### CHOOSE THE VIDEO TO PROCESS ######################
+chose_video_type = VideoType.LANE_CHANGE
+#########################################################################
 
 
-# Main function to process the video
 def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime=False, detect_curve = False, 
                   width_hyper = (0.1, 0.4, 0.6, 0.9), height_hyper = (0.8, 0.6)):
     cap = cv2.VideoCapture(video_path)
@@ -55,12 +70,12 @@ def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime
         if enhance_nighttime:
             gray_frame = enhance_nighttime_visibility(frame)
         else:   
-        #Greyscale the frame
+            # Grey-scale the frame
             gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 
         # Apply gaussian blur for smoothing out the frame
         blurred_frame = cv2.GaussianBlur(src=gray_frame, ksize=(5,5), sigmaX=0)
-        # Find edges that will be point of intrest in our image
+        # Find edges that will be point of interest in our image
         edges = cv2.Canny(blurred_frame, 75, 220)
         vertical_lines = detect_vertical_lines(edges)
         masked_edges = region_of_interest(vertical_lines, width_hyper, height_hyper)
@@ -125,8 +140,14 @@ def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
-    # process_video(day_drive  + data_type, out_path=day_drive + '-result')
-    process_video(day_drive + data_type, out_path=day_drive + '-result', detect_vehicles=True)
-    #process_video(original_night_drive + data_type, out_path=original_night_drive + '-result', enhance_nighttime = True, width_hyper = (0.07, 0.4, 0.6,  0.93), height_hyper = (0.9,0.7))
-    # process_video(day_with_sidewalk + data_type, out_path=day_with_sidewalk + '-result')
-    print('Initiating main.py for lane detection project')
+    video_name = chose_video_type.get_video_name()
+    video_path = video_name + data_type
+    out_suffix = '-result'
+    if chose_video_type == VideoType.LANE_CHANGE:
+        process_video(video_path, video_name + out_suffix)
+    elif chose_video_type == VideoType.NIGHT_TIME:
+        process_video(video_path, video_name + out_suffix, enhance_nighttime=True, width_hyper = (0.07, 0.4, 0.6,  0.93), height_hyper = (0.9,0.7))
+    elif chose_video_type == VideoType.DETECT_VEHICLES:
+        process_video(video_path, video_name + out_suffix, detect_vehicles=True)
+    elif chose_video_type == VideoType.DETECT_CURVES:
+        process_video(video_path, video_name + "-curve" + out_suffix, detect_curve=True)
