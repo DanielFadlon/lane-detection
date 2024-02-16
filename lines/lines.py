@@ -81,7 +81,7 @@ def draw_prev_lines(frame, lines, lane_change_status, thickness=6):
     cv2.line(frame, (x3, y3), (x4, y4), (255, 0, 0), thickness)
     return frame
 
-def detect_vertical_lines(edges):
+def find_vertical_edges(edges):
     # Define a vertical line convolution kernel
     kernel = np.array([[-1, 2, -1],
                     [-1, 2, -1],
