@@ -5,6 +5,7 @@ It focuses on detecting lane lines, lane changes, and offers additional support 
 
 # Main Features
 ### Lane Line Detection: Identifies and highlights lane lines in dashcam footage.
+[![Watch the video](images/day.png)](https://www.youtube.com/watch?v=dQw4w9WgXcQ](https://www.youtube.com/watch?v=qNArhAMxmMY "Watch the video")
 ### Lane Change Detection: Identifies when a lane change takes place and indicates the direction of the change.
 
 # Enhancements
