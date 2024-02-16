@@ -1,19 +1,16 @@
 import cv2
 import numpy as np
 from enum import Enum
-from lane_change.lane_change import LaneChangeHandler
 
-from lane_change.lane_direction import LaneChangeDirection
-from lane_change.lane_change_utils import compute_center, compute_lane_width, display_lane_change_message
-from lines.lines import choose_lines, detect_vertical_lines, draw_lines, draw_prev_lines
+from lane_change.lane_change import LaneChangeHandler
+from lane_change.lane_change_utils import display_lane_change_message
+from lines.lines import choose_lines, find_vertical_edges, draw_lines, draw_prev_lines
 
 from enhancements.night_time.night_time import enhance_nighttime_visibility
 from enhancements.vehicle_detection.vehicle_detection import detect_vehicles_in_frame
 from enhancements.curve.curve import choose_lines_curve, draw_curved_lines
 
 from utils import region_of_interest
-
-data_type = '.mp4'
 
 class VideoType(Enum):
     LANE_CHANGE = 1
@@ -68,7 +65,7 @@ def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime
         blurred_frame = cv2.GaussianBlur(src=gray_frame, ksize=(5,5), sigmaX=0)
         # Find edges that will be point of interest in our image
         edges = cv2.Canny(blurred_frame, 75, 220)
-        vertical_lines = detect_vertical_lines(edges)
+        vertical_lines = find_vertical_edges(edges)
         masked_edges = region_of_interest(vertical_lines, *region_of_interest_hyp)
         lines = cv2.HoughLinesP(masked_edges, 2, np.pi/180, 100, np.array([]), minLineLength=100, maxLineGap=500)
         
@@ -104,6 +101,7 @@ def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime
     cv2.destroyAllWindows()
 
 if __name__ == '__main__':
+    data_type = '.mp4'
     video_name = chose_video_type.get_video_name()
     video_path = video_name + data_type
     out_suffix = '-result'
