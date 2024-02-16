@@ -175,6 +175,4 @@ def mark_vehicles(frame, vehicle_detections, y_th, x_th):
         is_close_x = x + w/2 > frame.shape[1] * x_th
         if is_close_y and is_close_x:
             cv2.putText(frame, "Caution!!!", (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2)
-        elif is_close_x:
-            cv2.putText(frame, "Adjacent Lane!", (x, y - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 0, 255), 2)
         cv2.rectangle(frame, (x, y), (x + w, y + h), (0, 0, 0), 2)
