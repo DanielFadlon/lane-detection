@@ -1,6 +1,7 @@
 import cv2
 import numpy as np
 from enum import Enum
+from lane_change.lane_change import LaneChangeHandler
 
 from lane_change.lane_direction import LaneChangeDirection
 from lane_change.lane_change_utils import compute_center, compute_lane_width, display_lane_change_message
@@ -31,7 +32,7 @@ class VideoType(Enum):
             return 'data/day_drive'
 
 ###################### CHOOSE THE VIDEO TO PROCESS ######################
-chose_video_type = VideoType.DETECT_VEHICLES
+chose_video_type = VideoType.LANE_CHANGE
 #########################################################################
 
 
@@ -43,19 +44,9 @@ def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime
     fourcc = cv2.VideoWriter_fourcc(*'XVID')
     out = cv2.VideoWriter(out_path + '.avi', fourcc, 20.0, (int(cap.get(3)), int(cap.get(4))))
 
-    current_lane_center = None
+    lane_change_handler = LaneChangeHandler()
     prev_lines = None
-
-    lane_width = None
-    first_lanes_width = []
-    required_lane_width = 0
-
-    lane_change_status = None
-
-    first_lanes_center = []
-    required_lane_center = 0
-    frame_counter = 0
-
+    lane_change_direction = None
     lane_changed_message_counter = 0
 
     while cap.isOpened():
@@ -65,7 +56,7 @@ def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime
             break
         frame_copy_for_car_detection = frame.copy()
         if prev_lines is not None:
-            frame_with_lines = draw_prev_lines(frame, prev_lines, lane_change_status)
+            frame_with_lines = draw_prev_lines(frame, prev_lines, lane_change_direction)
 
         if enhance_nighttime:
             gray_frame = enhance_nighttime_visibility(frame)
@@ -82,45 +73,18 @@ def process_video(video_path, out_path, detect_vehicles=False, enhance_nighttime
         lines = cv2.HoughLinesP(masked_edges, 2, np.pi/180, 100, np.array([]), minLineLength=100, maxLineGap=500)
         
         if lines is None:
-            frame_with_lines = draw_prev_lines(frame, prev_lines, lane_change_status)
+            frame_with_lines = draw_prev_lines(frame, prev_lines, lane_change_direction)
             continue
         
         updated_lines, num_selected_lines = choose_lines(lines, min_dist_x=75)
 
-        # Lane change detection
-        if lane_change_status is not None and frame_counter == 11:
-            frame_counter = -10
-            required_lane_width = 0
-            first_lanes_width = []
-            lane_width = None
-
-        if frame_counter == 0 and lane_change_status is not None:
-            lane_change_status = None
-
-        if num_selected_lines == 2:
-            lane_width = compute_lane_width(updated_lines)
-            current_lane_center = compute_center(updated_lines)
-            if frame_counter < 10:
-                first_lanes_width.append(lane_width)
-                first_lanes_center.append(current_lane_center)
-                frame_counter += 1
-
-        if frame_counter == 10:
-            required_lane_width = np.mean(first_lanes_width)
-            required_lane_center = np.mean(first_lanes_center)
-            frame_counter += 1
+        lane_change_handler.update_lane_tracking(updated_lines, num_selected_lines)
         
         frame_with_lines = draw_lines(frame, updated_lines)
         prev_lines = updated_lines
  
-        if lane_width is not None and lane_width < required_lane_width * 0.9:
-            lane_changed_message_counter = 400
-            if required_lane_center < current_lane_center:
-                lane_change_status = LaneChangeDirection.LEFT
-            else:
-                lane_change_status = LaneChangeDirection.RIGHT
-
-        lane_changed_message_counter = display_lane_change_message(frame, lane_changed_message_counter, lane_change_status)
+        lane_change_direction, lane_changed_message_counter = lane_change_handler.detect_lane_change()
+        lane_changed_message_counter = display_lane_change_message(frame, lane_changed_message_counter, lane_change_direction)
 
         if detect_vehicles:
             detect_vehicles_in_frame(frame, frame_copy_for_car_detection)
