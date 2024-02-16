@@ -25,8 +25,8 @@ class LaneChangeHandler:
         return self.change_direction
 
     def update_lane_tracking(self, updated_lines, num_selected_lines):
-        if self.change_direction is not None and self.frame_counter == 11:
-            self.frame_counter = -10
+        if self.change_direction is not None and self.frame_counter == self.n_first_lanes + 1:
+            self.frame_counter = -(self.n_first_lanes // 2)
             self.required_lane_width = 0
             self.first_lanes_width = []
             self.lane_width = None
@@ -37,12 +37,12 @@ class LaneChangeHandler:
         if num_selected_lines == 2:
             self.lane_width = compute_lane_width(updated_lines)
             self.current_lane_center = compute_center(updated_lines)
-            if self.frame_counter < 10:
+            if self.frame_counter < self.n_first_lanes:
                 self.first_lanes_width.append(self.lane_width)
                 self.first_lanes_center.append(self.current_lane_center)
                 self.frame_counter += 1
 
-        if self.frame_counter == 10:
+        if self.frame_counter == self.n_first_lanes:
             self.required_lane_width = np.mean(self.first_lanes_width)
             self.required_lane_center = np.mean(self.first_lanes_center)
             self.frame_counter += 1
