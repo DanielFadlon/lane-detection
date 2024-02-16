@@ -108,7 +108,7 @@ if __name__ == '__main__':
     if chose_video_type == VideoType.LANE_CHANGE:
         process_video(video_path, video_name + out_suffix)
     elif chose_video_type == VideoType.NIGHT_TIME:
-        process_video(video_path, video_name + out_suffix, enhance_nighttime=True, width_hyper = (0.07, 0.4, 0.6,  0.93), height_hyper = (0.9,0.7))
+        process_video(video_path, video_name + out_suffix, enhance_nighttime=True, region_of_interest_hyp = ((0.07, 0.9), (0.4, 0.7), (0.6, 0.7), (0.93, 0.9)))
     elif chose_video_type == VideoType.DETECT_VEHICLES:
         process_video(video_path, video_name + out_suffix, detect_vehicles=True)
     elif chose_video_type == VideoType.DETECT_CURVES:
